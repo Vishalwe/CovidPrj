@@ -1,5 +1,5 @@
 {
-	"name": "pipeline1",
+	"name": "CovidProjPipeline",
 	"properties": {
 		"activities": [
 			{
