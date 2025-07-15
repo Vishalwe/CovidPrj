@@ -1,0 +1,159 @@
+{
+	"name": "dataflow1",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "dataflowjson",
+						"type": "DatasetReference"
+					},
+					"name": "source1",
+					"description": "Import data from datalake"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "sink",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "flattenjson"
+				},
+				{
+					"name": "selectcolumns"
+				},
+				{
+					"name": "filterdata"
+				},
+				{
+					"name": "splitdata"
+				},
+				{
+					"name": "Distance"
+				},
+				{
+					"name": "Rank"
+				},
+				{
+					"name": "selectnorecovery"
+				},
+				{
+					"name": "selectrecovery"
+				},
+				{
+					"name": "joindatasets"
+				},
+				{
+					"name": "filterdataonrank",
+					"description": "Filtering rows using expressions on columns 'Rank'==1"
+				},
+				{
+					"name": "selectfinalcols"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          data as (id as string, infected as integer, recovered as integer, latitude as double, pop as integer, longitude as double, name as string, country as string, lastUpdated as string, dead as integer, sick as integer)[]",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     documentForm: 'singleDocument') ~> source1",
+				"source1 foldDown(unroll(data),",
+				"     mapColumn(",
+				"          data",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> flattenjson",
+				"flattenjson select(mapColumn(",
+				"          country = data.country,",
+				"          infected = data.infected,",
+				"          recovered = data.recovered,",
+				"          latitude = data.latitude,",
+				"          longitude = data.longitude,",
+				"          pop = data.pop,",
+				"          name = data.name,",
+				"          lastUpdated = data.lastUpdated,",
+				"          dead = data.dead,",
+				"          sick = data.sick",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectcolumns",
+				"selectcolumns filter(greater(infected,50)) ~> filterdata",
+				"filterdata split(greater(recovered, 0),",
+				"     disjoint: false) ~> splitdata@(splitonerecovery, splittwonorecovery)",
+				"joindatasets derive(distance = 6371 * acos(",
+				"    cos(latitude * (3.141592653589793 / 180)) *",
+				"    cos(latitude_norec * (3.141592653589793 / 180)) *",
+				"    cos((longitude_norec - longitude) * (3.141592653589793 / 180)) +",
+				"    sin(latitude * (3.141592653589793 / 180)) *",
+				"    sin(latitude_norec * (3.141592653589793 / 180))",
+				")) ~> Distance",
+				"Distance window(over(country),",
+				"     asc(distance, true),",
+				"     Rank = rank()) ~> Rank",
+				"splitdata@splittwonorecovery select(mapColumn(",
+				"          country_norec = country,",
+				"          infected_norec = infected,",
+				"          recovered_norec = recovered,",
+				"          latitude_norec = latitude,",
+				"          longitude_norec = longitude,",
+				"          pop_norec = pop,",
+				"          name_norec = name,",
+				"          lastUpdated_norec = lastUpdated,",
+				"          dead_norec = dead,",
+				"          sick_norec = sick",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectnorecovery",
+				"splitdata@splitonerecovery select(skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectrecovery",
+				"selectrecovery, selectnorecovery join(1==1,",
+				"     joinType:'cross',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> joindatasets",
+				"Rank filter(Rank==1) ~> filterdataonrank",
+				"filterdataonrank select(mapColumn(",
+				"          country,",
+				"          infected,",
+				"          recovered,",
+				"          latitude,",
+				"          longitude,",
+				"          pop,",
+				"          name,",
+				"          lastUpdated,",
+				"          dead,",
+				"          sick,",
+				"          country_norec,",
+				"          infected_norec,",
+				"          recovered_norec,",
+				"          latitude_norec,",
+				"          longitude_norec,",
+				"          pop_norec,",
+				"          name_norec,",
+				"          lastUpdated_norec,",
+				"          dead_norec,",
+				"          sick_norec,",
+				"          distance",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectfinalcols",
+				"selectfinalcols sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink1"
+			]
+		}
+	}
+}

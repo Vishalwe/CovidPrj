@@ -1,0 +1,66 @@
+{
+	"name": "dataflowjson",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_datalakestorage",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "coviddata.json",
+				"folderPath": "bronze",
+				"fileSystem": "raw"
+			}
+		},
+		"schema": {
+			"type": "object",
+			"properties": {
+				"data": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string"
+							},
+							"infected": {
+								"type": "integer"
+							},
+							"recovered": {
+								"type": "integer"
+							},
+							"latitude": {
+								"type": "number"
+							},
+							"pop": {
+								"type": "integer"
+							},
+							"longitude": {
+								"type": "number"
+							},
+							"name": {
+								"type": "string"
+							},
+							"country": {
+								"type": "string"
+							},
+							"lastUpdated": {
+								"type": "string"
+							},
+							"dead": {
+								"type": "integer"
+							},
+							"sick": {
+								"type": "integer"
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
