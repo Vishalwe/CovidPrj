@@ -347,6 +347,265 @@
 			]
 		},
 		{
+			"name": "[concat(parameters('factoryName'), '/fetchrawdata')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "getMetadata",
+						"type": "GetMetadata",
+						"dependsOn": [
+							{
+								"activity": "copyrawdata",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "getmeta",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "JsonReadSettings"
+							}
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "getMetadata",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('getMetadata').output.childItems",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Set variable1",
+									"type": "SetVariable",
+									"dependsOn": [],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "filename",
+										"value": {
+											"value": "@item().name",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "If Condition1",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "Set variable1",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@not(equals(variables('filename'),'coviddata.json'))",
+											"type": "Expression"
+										},
+										"ifFalseActivities": [
+											{
+												"name": "testvar",
+												"type": "SetVariable",
+												"dependsOn": [],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "ff",
+													"value": {
+														"value": "@variables('filename')",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"ifTrueActivities": [
+											{
+												"name": "deletefile",
+												"type": "Delete",
+												"dependsOn": [
+													{
+														"activity": "delfile",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"dataset": {
+														"referenceName": "deletegarbage",
+														"type": "DatasetReference",
+														"parameters": {}
+													},
+													"logStorageSettings": {
+														"linkedServiceName": {
+															"referenceName": "ls_datalakestorage",
+															"type": "LinkedServiceReference"
+														},
+														"path": "raw/Del_logging"
+													},
+													"enableLogging": true,
+													"storeSettings": {
+														"type": "AzureBlobFSReadSettings",
+														"recursive": true,
+														"wildcardFileName": {
+															"value": "@variables('delgarbagefile')",
+															"type": "Expression"
+														},
+														"enablePartitionDiscovery": false
+													}
+												}
+											},
+											{
+												"name": "delfile",
+												"type": "SetVariable",
+												"dependsOn": [],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "delgarbagefile",
+													"value": {
+														"value": "@variables('filename')",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "copyrawdata",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "JsonSource",
+								"storeSettings": {
+									"type": "HttpReadSettings",
+									"requestMethod": "GET"
+								},
+								"formatSettings": {
+									"type": "JsonReadSettings"
+								}
+							},
+							"sink": {
+								"type": "JsonSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "JsonWriteSettings"
+								}
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "sourcejson",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "Json1",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"filename": {
+						"type": "String"
+					},
+					"ff": {
+						"type": "String"
+					},
+					"delgarbagefile": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-07-15T09:30:56Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/getmeta')]",
+				"[concat(variables('factoryId'), '/datasets/sourcejson')]",
+				"[concat(variables('factoryId'), '/datasets/Json1')]",
+				"[concat(variables('factoryId'), '/datasets/deletegarbage')]",
+				"[concat(variables('factoryId'), '/linkedServices/ls_datalakestorage')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('factoryName'), '/dataflow1')]",
 			"type": "Microsoft.DataFactory/factories/dataflows",
 			"apiVersion": "2018-06-01",
@@ -512,14 +771,14 @@
 			]
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/CovidProjPipeline')]",
+			"name": "[concat(parameters('factoryName'), '/transformation pipeline')]",
 			"type": "Microsoft.DataFactory/factories/pipelines",
 			"apiVersion": "2018-06-01",
 			"properties": {
 				"activities": [
 					{
-						"name": "copyrawdata",
-						"type": "Copy",
+						"name": "Data flow1",
+						"type": "ExecuteDataFlow",
 						"dependsOn": [],
 						"policy": {
 							"timeout": "0.12:00:00",
@@ -530,282 +789,89 @@
 						},
 						"userProperties": [],
 						"typeProperties": {
-							"source": {
-								"type": "JsonSource",
-								"storeSettings": {
-									"type": "HttpReadSettings",
-									"requestMethod": "GET"
-								},
-								"formatSettings": {
-									"type": "JsonReadSettings"
+							"dataflow": {
+								"referenceName": "dataflow1",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"source1": {},
+									"sink1": {}
 								}
 							},
-							"sink": {
-								"type": "JsonSink",
-								"storeSettings": {
-									"type": "AzureBlobFSWriteSettings"
-								},
-								"formatSettings": {
-									"type": "JsonWriteSettings"
-								}
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
 							},
-							"enableStaging": false
-						},
-						"inputs": [
-							{
-								"referenceName": "sourcejson",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						],
-						"outputs": [
-							{
-								"referenceName": "Json1",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						]
-					},
-					{
-						"name": "getMetadata",
-						"type": "GetMetadata",
-						"dependsOn": [
-							{
-								"activity": "copyrawdata",
-								"dependencyConditions": [
-									"Succeeded"
-								]
-							}
-						],
-						"policy": {
-							"timeout": "0.12:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"dataset": {
-								"referenceName": "getmeta",
-								"type": "DatasetReference",
-								"parameters": {}
-							},
-							"fieldList": [
-								"childItems"
-							],
-							"storeSettings": {
-								"type": "AzureBlobFSReadSettings",
-								"recursive": true,
-								"enablePartitionDiscovery": false
-							},
-							"formatSettings": {
-								"type": "JsonReadSettings"
-							}
-						}
-					},
-					{
-						"name": "ForEach1",
-						"type": "ForEach",
-						"dependsOn": [
-							{
-								"activity": "getMetadata",
-								"dependencyConditions": [
-									"Succeeded"
-								]
-							}
-						],
-						"userProperties": [],
-						"typeProperties": {
-							"items": {
-								"value": "@activity('getMetadata').output.childItems",
-								"type": "Expression"
-							},
-							"isSequential": true,
-							"activities": [
-								{
-									"name": "Set variable1",
-									"type": "SetVariable",
-									"dependsOn": [],
-									"policy": {
-										"secureOutput": false,
-										"secureInput": false
-									},
-									"userProperties": [],
-									"typeProperties": {
-										"variableName": "filename",
-										"value": {
-											"value": "@item().name",
-											"type": "Expression"
-										}
-									}
-								},
-								{
-									"name": "If Condition1",
-									"type": "IfCondition",
-									"dependsOn": [
-										{
-											"activity": "Set variable1",
-											"dependencyConditions": [
-												"Succeeded"
-											]
-										}
-									],
-									"userProperties": [],
-									"typeProperties": {
-										"expression": {
-											"value": "@not(equals(variables('filename'),'coviddata.json'))",
-											"type": "Expression"
-										},
-										"ifFalseActivities": [
-											{
-												"name": "testvar",
-												"type": "SetVariable",
-												"dependsOn": [],
-												"policy": {
-													"secureOutput": false,
-													"secureInput": false
-												},
-												"userProperties": [],
-												"typeProperties": {
-													"variableName": "ff",
-													"value": {
-														"value": "@variables('filename')",
-														"type": "Expression"
-													}
-												}
-											},
-											{
-												"name": "Data flow1",
-												"type": "ExecuteDataFlow",
-												"dependsOn": [
-													{
-														"activity": "testvar",
-														"dependencyConditions": [
-															"Succeeded"
-														]
-													}
-												],
-												"policy": {
-													"timeout": "0.12:00:00",
-													"retry": 0,
-													"retryIntervalInSeconds": 30,
-													"secureOutput": false,
-													"secureInput": false
-												},
-												"userProperties": [],
-												"typeProperties": {
-													"dataflow": {
-														"referenceName": "dataflow1",
-														"type": "DataFlowReference",
-														"parameters": {},
-														"datasetParameters": {
-															"source1": {},
-															"sink1": {}
-														}
-													},
-													"staging": {},
-													"compute": {
-														"coreCount": 8,
-														"computeType": "General"
-													},
-													"traceLevel": "Fine"
-												}
-											}
-										],
-										"ifTrueActivities": [
-											{
-												"name": "deletefile",
-												"type": "Delete",
-												"dependsOn": [
-													{
-														"activity": "delfile",
-														"dependencyConditions": [
-															"Succeeded"
-														]
-													}
-												],
-												"policy": {
-													"timeout": "0.12:00:00",
-													"retry": 0,
-													"retryIntervalInSeconds": 30,
-													"secureOutput": false,
-													"secureInput": false
-												},
-												"userProperties": [],
-												"typeProperties": {
-													"dataset": {
-														"referenceName": "deletegarbage",
-														"type": "DatasetReference",
-														"parameters": {}
-													},
-													"logStorageSettings": {
-														"linkedServiceName": {
-															"referenceName": "ls_datalakestorage",
-															"type": "LinkedServiceReference"
-														},
-														"path": "raw/Del_logging"
-													},
-													"enableLogging": true,
-													"storeSettings": {
-														"type": "AzureBlobFSReadSettings",
-														"recursive": true,
-														"wildcardFileName": {
-															"value": "@variables('delgarbagefile')",
-															"type": "Expression"
-														},
-														"enablePartitionDiscovery": false
-													}
-												}
-											},
-											{
-												"name": "delfile",
-												"type": "SetVariable",
-												"dependsOn": [],
-												"policy": {
-													"secureOutput": false,
-													"secureInput": false
-												},
-												"userProperties": [],
-												"typeProperties": {
-													"variableName": "delgarbagefile",
-													"value": {
-														"value": "@variables('filename')",
-														"type": "Expression"
-													}
-												}
-											}
-										]
-									}
-								}
-							]
+							"traceLevel": "Fine"
 						}
 					}
 				],
 				"policy": {
 					"elapsedTimeMetric": {}
 				},
-				"variables": {
-					"filename": {
-						"type": "String"
-					},
-					"ff": {
-						"type": "String"
-					},
-					"delgarbagefile": {
-						"type": "String"
-					}
-				},
-				"annotations": [],
-				"lastPublishTime": "2025-07-15T09:30:56Z"
+				"annotations": []
 			},
 			"dependsOn": [
-				"[concat(variables('factoryId'), '/datasets/sourcejson')]",
-				"[concat(variables('factoryId'), '/datasets/Json1')]",
-				"[concat(variables('factoryId'), '/datasets/getmeta')]",
-				"[concat(variables('factoryId'), '/dataflows/dataflow1')]",
-				"[concat(variables('factoryId'), '/datasets/deletegarbage')]",
-				"[concat(variables('factoryId'), '/linkedServices/ls_datalakestorage')]"
+				"[concat(variables('factoryId'), '/dataflows/dataflow1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/master')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "fetchData",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "fetchrawdata",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					},
+					{
+						"name": "transform",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "fetchData",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "transformation pipeline",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/fetchrawdata')]",
+				"[concat(variables('factoryId'), '/pipelines/transformation pipeline')]"
 			]
 		}
 	]
