@@ -1,9 +1,0 @@
-{
-	"name": "adfcovidprj",
-	"location": "eastus",
-	"identity": {
-		"type": "SystemAssigned",
-		"principalId": "b7526a5e-fa27-4c53-974b-e2c47000e268",
-		"tenantId": "531a9edd-0f41-4e70-9868-121eac3f24c1"
-	}
-}
