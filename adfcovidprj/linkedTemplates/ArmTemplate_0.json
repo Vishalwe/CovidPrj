@@ -296,6 +296,90 @@
 			]
 		},
 		{
+			"name": "[concat(parameters('factoryName'), '/goldsrcfile')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_datalakestorage",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "silver",
+						"fileSystem": "raw"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_datalakestorage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/goldtansformedfile')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_datalakestorage",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "gold",
+						"fileSystem": "raw"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_datalakestorage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/silvertransfile')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_datalakestorage",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "silver",
+						"fileSystem": "raw"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_datalakestorage')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('factoryName'), '/sink')]",
 			"type": "Microsoft.DataFactory/factories/datasets",
 			"apiVersion": "2018-06-01",
@@ -606,7 +690,7 @@
 			]
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/dataflow1')]",
+			"name": "[concat(parameters('factoryName'), '/DFbronzetransform')]",
 			"type": "Microsoft.DataFactory/factories/dataflows",
 			"apiVersion": "2018-06-01",
 			"properties": {
@@ -618,17 +702,17 @@
 								"referenceName": "dataflowjson",
 								"type": "DatasetReference"
 							},
-							"name": "source1",
+							"name": "sourcebronze",
 							"description": "Import data from datalake"
 						}
 					],
 					"sinks": [
 						{
 							"dataset": {
-								"referenceName": "sink",
+								"referenceName": "silvertransfile",
 								"type": "DatasetReference"
 							},
-							"name": "sink1"
+							"name": "sinkSilver"
 						}
 					],
 					"transformations": [
@@ -640,7 +724,78 @@
 						},
 						{
 							"name": "filterdata"
-						},
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          data as (id as string, infected as integer, recovered as integer, latitude as double, pop as integer, longitude as double, name as string, country as string, lastUpdated as string, dead as integer, sick as integer)[]",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     documentForm: 'singleDocument') ~> sourcebronze",
+						"sourcebronze foldDown(unroll(data),",
+						"     mapColumn(",
+						"          data",
+						"     ),",
+						"     skipDuplicateMapInputs: false,",
+						"     skipDuplicateMapOutputs: false) ~> flattenjson",
+						"flattenjson select(mapColumn(",
+						"          country = data.country,",
+						"          infected = data.infected,",
+						"          recovered = data.recovered,",
+						"          latitude = data.latitude,",
+						"          longitude = data.longitude,",
+						"          pop = data.pop,",
+						"          name = data.name,",
+						"          lastUpdated = data.lastUpdated,",
+						"          dead = data.dead,",
+						"          sick = data.sick",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectcolumns",
+						"selectcolumns filter(greater(infected,50)) ~> filterdata",
+						"filterdata sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     umask: 0722,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sinkSilver"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/dataflowjson')]",
+				"[concat(variables('factoryId'), '/datasets/silvertransfile')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DFsilvertransformation')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "goldsrcfile",
+								"type": "DatasetReference"
+							},
+							"name": "sourceSilver"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "goldtansformedfile",
+								"type": "DatasetReference"
+							},
+							"name": "goldsink"
+						}
+					],
+					"transformations": [
 						{
 							"name": "splitdata"
 						},
@@ -665,38 +820,28 @@
 						},
 						{
 							"name": "selectfinalcols"
+						},
+						{
+							"name": "selectdata"
 						}
 					],
 					"scriptLines": [
 						"source(output(",
-						"          data as (id as string, infected as integer, recovered as integer, latitude as double, pop as integer, longitude as double, name as string, country as string, lastUpdated as string, dead as integer, sick as integer)[]",
+						"          country as string,",
+						"          infected as integer,",
+						"          recovered as integer,",
+						"          latitude as double,",
+						"          longitude as double,",
+						"          pop as integer,",
+						"          name as string,",
+						"          lastUpdated as string,",
+						"          dead as short,",
+						"          sick as integer",
 						"     ),",
 						"     allowSchemaDrift: true,",
 						"     validateSchema: false,",
-						"     ignoreNoFilesFound: false,",
-						"     documentForm: 'singleDocument') ~> source1",
-						"source1 foldDown(unroll(data),",
-						"     mapColumn(",
-						"          data",
-						"     ),",
-						"     skipDuplicateMapInputs: false,",
-						"     skipDuplicateMapOutputs: false) ~> flattenjson",
-						"flattenjson select(mapColumn(",
-						"          country = data.country,",
-						"          infected = data.infected,",
-						"          recovered = data.recovered,",
-						"          latitude = data.latitude,",
-						"          longitude = data.longitude,",
-						"          pop = data.pop,",
-						"          name = data.name,",
-						"          lastUpdated = data.lastUpdated,",
-						"          dead = data.dead,",
-						"          sick = data.sick",
-						"     ),",
-						"     skipDuplicateMapInputs: true,",
-						"     skipDuplicateMapOutputs: true) ~> selectcolumns",
-						"selectcolumns filter(greater(infected,50)) ~> filterdata",
-						"filterdata split(greater(recovered, 0),",
+						"     ignoreNoFilesFound: false) ~> sourceSilver",
+						"selectdata split(greater(recovered, 0),",
 						"     disjoint: false) ~> splitdata@(splitonerecovery, splittwonorecovery)",
 						"joindatasets derive(distance = 6371 * acos(",
 						"    cos(latitude * (3.141592653589793 / 180)) *",
@@ -755,23 +900,71 @@
 						"     ),",
 						"     skipDuplicateMapInputs: true,",
 						"     skipDuplicateMapOutputs: true) ~> selectfinalcols",
+						"sourceSilver select(skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectdata",
 						"selectfinalcols sink(allowSchemaDrift: true,",
 						"     validateSchema: false,",
 						"     umask: 0022,",
 						"     preCommands: [],",
 						"     postCommands: [],",
 						"     skipDuplicateMapInputs: true,",
-						"     skipDuplicateMapOutputs: true) ~> sink1"
+						"     skipDuplicateMapOutputs: true) ~> goldsink"
 					]
 				}
 			},
 			"dependsOn": [
-				"[concat(variables('factoryId'), '/datasets/dataflowjson')]",
-				"[concat(variables('factoryId'), '/datasets/sink')]"
+				"[concat(variables('factoryId'), '/datasets/goldsrcfile')]",
+				"[concat(variables('factoryId'), '/datasets/goldtansformedfile')]"
 			]
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/transformation pipeline')]",
+			"name": "[concat(parameters('factoryName'), '/bronzetransform')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "dataflowbronze",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "DFbronzetransform",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"sourcebronze": {},
+									"sinkSilver": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/DFbronzetransform')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/silverTransform')]",
 			"type": "Microsoft.DataFactory/factories/pipelines",
 			"apiVersion": "2018-06-01",
 			"properties": {
@@ -790,12 +983,12 @@
 						"userProperties": [],
 						"typeProperties": {
 							"dataflow": {
-								"referenceName": "dataflow1",
+								"referenceName": "DFsilvertransformation",
 								"type": "DataFlowReference",
 								"parameters": {},
 								"datasetParameters": {
-									"source1": {},
-									"sink1": {}
+									"sourceSilver": {},
+									"goldsink": {}
 								}
 							},
 							"staging": {},
@@ -813,65 +1006,7 @@
 				"annotations": []
 			},
 			"dependsOn": [
-				"[concat(variables('factoryId'), '/dataflows/dataflow1')]"
-			]
-		},
-		{
-			"name": "[concat(parameters('factoryName'), '/master')]",
-			"type": "Microsoft.DataFactory/factories/pipelines",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"activities": [
-					{
-						"name": "fetchData",
-						"type": "ExecutePipeline",
-						"dependsOn": [],
-						"policy": {
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"pipeline": {
-								"referenceName": "fetchrawdata",
-								"type": "PipelineReference"
-							},
-							"waitOnCompletion": true,
-							"parameters": {}
-						}
-					},
-					{
-						"name": "transform",
-						"type": "ExecutePipeline",
-						"dependsOn": [
-							{
-								"activity": "fetchData",
-								"dependencyConditions": [
-									"Succeeded"
-								]
-							}
-						],
-						"policy": {
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"pipeline": {
-								"referenceName": "transformation pipeline",
-								"type": "PipelineReference"
-							},
-							"waitOnCompletion": true,
-							"parameters": {}
-						}
-					}
-				],
-				"policy": {
-					"elapsedTimeMetric": {}
-				},
-				"annotations": []
-			},
-			"dependsOn": [
-				"[concat(variables('factoryId'), '/pipelines/fetchrawdata')]",
-				"[concat(variables('factoryId'), '/pipelines/transformation pipeline')]"
+				"[concat(variables('factoryId'), '/dataflows/DFsilvertransformation')]"
 			]
 		}
 	]
