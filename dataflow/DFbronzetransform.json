@@ -1,0 +1,75 @@
+{
+	"name": "DFbronzetransform",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "dataflowjson",
+						"type": "DatasetReference"
+					},
+					"name": "sourcebronze",
+					"description": "Import data from datalake"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "silvertransfile",
+						"type": "DatasetReference"
+					},
+					"name": "sinkSilver"
+				}
+			],
+			"transformations": [
+				{
+					"name": "flattenjson"
+				},
+				{
+					"name": "selectcolumns"
+				},
+				{
+					"name": "filterdata"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          data as (id as string, infected as integer, recovered as integer, latitude as double, pop as integer, longitude as double, name as string, country as string, lastUpdated as string, dead as integer, sick as integer)[]",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     documentForm: 'singleDocument') ~> sourcebronze",
+				"sourcebronze foldDown(unroll(data),",
+				"     mapColumn(",
+				"          data",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> flattenjson",
+				"flattenjson select(mapColumn(",
+				"          country = data.country,",
+				"          infected = data.infected,",
+				"          recovered = data.recovered,",
+				"          latitude = data.latitude,",
+				"          longitude = data.longitude,",
+				"          pop = data.pop,",
+				"          name = data.name,",
+				"          lastUpdated = data.lastUpdated,",
+				"          dead = data.dead,",
+				"          sick = data.sick",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectcolumns",
+				"selectcolumns filter(greater(infected,50)) ~> filterdata",
+				"filterdata sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     umask: 0722,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sinkSilver"
+			]
+		}
+	}
+}

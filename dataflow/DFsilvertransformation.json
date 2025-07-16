@@ -1,37 +1,27 @@
 {
-	"name": "dataflow1",
+	"name": "DFsilvertransformation",
 	"properties": {
 		"type": "MappingDataFlow",
 		"typeProperties": {
 			"sources": [
 				{
 					"dataset": {
-						"referenceName": "dataflowjson",
+						"referenceName": "goldsrcfile",
 						"type": "DatasetReference"
 					},
-					"name": "source1",
-					"description": "Import data from datalake"
+					"name": "sourceSilver"
 				}
 			],
 			"sinks": [
 				{
 					"dataset": {
-						"referenceName": "sink",
+						"referenceName": "goldtansformedfile",
 						"type": "DatasetReference"
 					},
-					"name": "sink1"
+					"name": "goldsink"
 				}
 			],
 			"transformations": [
-				{
-					"name": "flattenjson"
-				},
-				{
-					"name": "selectcolumns"
-				},
-				{
-					"name": "filterdata"
-				},
 				{
 					"name": "splitdata"
 				},
@@ -56,38 +46,28 @@
 				},
 				{
 					"name": "selectfinalcols"
+				},
+				{
+					"name": "selectdata"
 				}
 			],
 			"scriptLines": [
 				"source(output(",
-				"          data as (id as string, infected as integer, recovered as integer, latitude as double, pop as integer, longitude as double, name as string, country as string, lastUpdated as string, dead as integer, sick as integer)[]",
+				"          country as string,",
+				"          infected as integer,",
+				"          recovered as integer,",
+				"          latitude as double,",
+				"          longitude as double,",
+				"          pop as integer,",
+				"          name as string,",
+				"          lastUpdated as string,",
+				"          dead as short,",
+				"          sick as integer",
 				"     ),",
 				"     allowSchemaDrift: true,",
 				"     validateSchema: false,",
-				"     ignoreNoFilesFound: false,",
-				"     documentForm: 'singleDocument') ~> source1",
-				"source1 foldDown(unroll(data),",
-				"     mapColumn(",
-				"          data",
-				"     ),",
-				"     skipDuplicateMapInputs: false,",
-				"     skipDuplicateMapOutputs: false) ~> flattenjson",
-				"flattenjson select(mapColumn(",
-				"          country = data.country,",
-				"          infected = data.infected,",
-				"          recovered = data.recovered,",
-				"          latitude = data.latitude,",
-				"          longitude = data.longitude,",
-				"          pop = data.pop,",
-				"          name = data.name,",
-				"          lastUpdated = data.lastUpdated,",
-				"          dead = data.dead,",
-				"          sick = data.sick",
-				"     ),",
-				"     skipDuplicateMapInputs: true,",
-				"     skipDuplicateMapOutputs: true) ~> selectcolumns",
-				"selectcolumns filter(greater(infected,50)) ~> filterdata",
-				"filterdata split(greater(recovered, 0),",
+				"     ignoreNoFilesFound: false) ~> sourceSilver",
+				"selectdata split(greater(recovered, 0),",
 				"     disjoint: false) ~> splitdata@(splitonerecovery, splittwonorecovery)",
 				"joindatasets derive(distance = 6371 * acos(",
 				"    cos(latitude * (3.141592653589793 / 180)) *",
@@ -146,13 +126,15 @@
 				"     ),",
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true) ~> selectfinalcols",
+				"sourceSilver select(skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectdata",
 				"selectfinalcols sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     umask: 0022,",
 				"     preCommands: [],",
 				"     postCommands: [],",
 				"     skipDuplicateMapInputs: true,",
-				"     skipDuplicateMapOutputs: true) ~> sink1"
+				"     skipDuplicateMapOutputs: true) ~> goldsink"
 			]
 		}
 	}

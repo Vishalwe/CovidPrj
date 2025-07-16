@@ -1,9 +1,9 @@
 {
-	"name": "silverTransform",
+	"name": "bronzetransform",
 	"properties": {
 		"activities": [
 			{
-				"name": "Data flow1",
+				"name": "dataflowbronze",
 				"type": "ExecuteDataFlow",
 				"dependsOn": [],
 				"policy": {
@@ -16,7 +16,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"dataflow": {
-						"referenceName": "DFsilvertransformation",
+						"referenceName": "DFbronzetransform",
 						"type": "DataFlowReference"
 					},
 					"compute": {

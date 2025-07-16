@@ -19,7 +19,30 @@
 				}
 			},
 			{
-				"name": "transform",
+				"name": "SilverTransform",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "bronzetranform",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "silverTransform",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "bronzetranform",
 				"type": "ExecutePipeline",
 				"dependsOn": [
 					{
@@ -35,7 +58,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"pipeline": {
-						"referenceName": "transformation pipeline",
+						"referenceName": "bronzetransform",
 						"type": "PipelineReference"
 					},
 					"waitOnCompletion": true
